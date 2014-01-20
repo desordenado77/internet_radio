@@ -1,0 +1,23 @@
+
+# users
+# user0name...userNname
+# user0songs
+#       user0song0...user0songM
+#       user0artist0...user0artistM
+
+# playlists
+# playlist0name
+# playlist0songs
+#   playlist0song0...playlist0songM
+#   playlist0artist0...playlist0artistM
+
+# radios
+# radio0name 
+
+# nowPlaying_song
+# nowPlaying_album
+# nowPlaying_artist
+# nowPlaying_pos
+# nowPlaying_dur
+
+# lininoStatus

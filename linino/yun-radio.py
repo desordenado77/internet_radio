@@ -7,33 +7,52 @@ import sys
 import time
 import select
 import json
+import os
 
 from grooveshark import Client
 from grooveshark.classes import Radio
 
+linino = 0
 
 def rest_interface_put(key, value):
-    url_name='http://localhost/data/put/'
-    urllib2.urlopen(url_name + key + '/' + value)
-#    print(url_name + key + '/' + value)
+    url_prefix='http://localhost/data/put/'
+    url = url_prefix + key + '/' + urllib.quote(value)
+    if linino:
+        urllib2.urlopen(url)
+    else:
+        print(url)
 
 def rest_interface_get(key):
 # $ url -u root:arduino http://192.168.1.208/data/get/counter
 # {"value":"727091","key":"counter","response":"get"}
-    url_name='http://localhost/data/get/'
-    response = urllib2.urlopen(url_name + key)
-    decoded = json.load(response)
+    url_prefix='http://localhost/data/get/'
+    url = url_prefix + key
+    if linino:
+        response = urllib2.urlopen(url)
+        decoded = json.load(response)
 #    print(decoded['value'])
-    response.close()
-    return decoded['value']
+        response.close()
+        return decoded['value']
+    else:
+        ret = ''
+        try:
+            keyfile = open('REST/' + key, 'r')
+            ret = keyfile.readline()
+            keyfile.close()
+            os.remove('REST/' + key)
+        except IOError:
+            pass
+
+        return ret
+        
         
 
 
 def load_stream(proc, song):
     cmd = 'L ' + song.stream.url +'\n'
-    rest_interface_put('nowPlaying_song', urllib.quote(unicode(song.name).encode("utf-8")))
-    rest_interface_put('nowPlaying_album', urllib.quote(unicode(song.album).encode("utf-8")))
-    rest_interface_put('nowPlaying_artist', urllib.quote(unicode(song.artist).encode("utf-8")))
+    rest_interface_put('nowPlaying_song', (unicode(song.name).encode("utf-8")))
+    rest_interface_put('nowPlaying_album', (unicode(song.album).encode("utf-8")))
+    rest_interface_put('nowPlaying_artist', (unicode(song.artist).encode("utf-8")))
     rest_interface_put('nowPlaying_pos', '0')
     rest_interface_put('nowPlaying_dur', '0')
 #    print(cmd)
@@ -55,6 +74,20 @@ def set_volume(proc, val):
     proc.stdin.write(cmd)
 
 
+def try_ping():
+    try:
+        urllib2.urlopen('http://www.grooveshark.com')
+    except urllib2.URLError, err:
+        print("Connection error " + str(err.reason))
+        return 1
+    return 0
+
+rest_interface_put('lininoStatus', 'Waiting for Connection')
+
+while try_ping():
+    time.sleep(1)
+
+rest_interface_put('lininoStatus', 'Connecting to GS')
 
 client = Client()
 client.init()
@@ -67,6 +100,8 @@ radios = open('gs_radios', 'r+')
 # user0name...userNname
 # user0songs
 #       user0song0...user0songM
+#       user0artist0...user0artistM
+rest_interface_put('lininoStatus', 'Building User Info')
 nusers = 0
 nsongs = 0
 for line in users:
@@ -74,7 +109,8 @@ for line in users:
     print(line)
     for song in client.collection(user_elements[0]):
 #        print(unicode(song.name).encode("utf-8"))
-        rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  urllib.quote(unicode(song.name).encode("utf-8")))
+        rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  (unicode(song.name).encode("utf-8")))
+        rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (unicode(song.artist).encode("utf-8")))
         nsongs+=1
     rest_interface_put('user' + str(nusers) + 'songs',  str(nsongs))
     rest_interface_put('user' + str(nusers) + 'name',  user_elements[1])
@@ -86,16 +122,19 @@ rest_interface_put('users',  str(nusers))
 # playlist0name
 # playlist0songs
 #   playlist0song0...playlist0songM
+#   playlist0artist0...playlist0artistM
+rest_interface_put('lininoStatus', 'Building Playlist')
 nplaylists = 0
 nsongs = 0
 for line in playlist:
     print(client.playlist(line).name)
     for song in client.playlist(line).songs:
 #        print(unicode(song.name).encode("utf-8"))
-        rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), urllib.quote(unicode(song.name).encode("utf-8")))
+        rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), (unicode(song.name).encode("utf-8")))
+        rest_interface_put('playlist' + str(nplaylists) + 'artist' + str(nsongs), (unicode(song.artist).encode("utf-8")))
         nsongs+=1
     rest_interface_put('playlist' + str(nplaylists) + 'songs', str(nsongs))
-    rest_interface_put('playlist' + str(nplaylists) + 'name', urllib.quote(unicode(client.playlist(line).name).encode("utf-8")))
+    rest_interface_put('playlist' + str(nplaylists) + 'name', (unicode(client.playlist(line).name).encode("utf-8")))
     nplaylists+=1
 
 rest_interface_put('playlists', str(nplaylists))
@@ -103,12 +142,13 @@ rest_interface_put('playlists', str(nplaylists))
 #
 # radios
 # radio0name 
+rest_interface_put('lininoStatus', 'Building Radios')
 nradios = 0
 radio = ""
 for line in radios:
     radio_element = line.split()
 #    print(line)
-    rest_interface_put('radio' + str(nradios) + 'name', urllib.quote(unicode(radio_element[1]).encode("utf-8")))
+    rest_interface_put('radio' + str(nradios) + 'name', (unicode(radio_element[1]).encode("utf-8")))
     nradios+=1
     radio = radio_element[0]
 
@@ -116,6 +156,8 @@ rest_interface_put('radios', str(nradios))
 
 current_pos = 0
 song_duration = 0
+
+rest_interface_put('lininoStatus', 'Starting Decoder')
 
 print(rest_interface_get('radio0name'))
 
@@ -125,6 +167,8 @@ print(rest_interface_get('radio0name'))
 #   S: stop
 #   V: volume (%)
 mpg123_proc = subprocess.Popen(['mpg123', '-R'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+rest_interface_put('lininoStatus', 'Ready')
 for song in client.radio(radio):
     prev_pos = -1
     load_stream(mpg123_proc, song)
