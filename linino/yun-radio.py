@@ -8,6 +8,7 @@ import time
 import select
 import json
 import os
+import random
 
 from grooveshark import Client
 from grooveshark.classes import Radio
@@ -64,7 +65,7 @@ def pause_stream(proc):
     proc.stdin.write(cmd)
 
 def stop_stream(proc):
-    cmd = 'C\n'
+    cmd = 'S\n'
 #    print(cmd)
     proc.stdin.write(cmd)
 
@@ -82,6 +83,19 @@ def try_ping():
         return 1
     return 0
 
+
+def randomly(seq, start):    
+    shuffled = list(seq)
+    first_item = shuffled[start]
+    random.shuffle(shuffled)
+    first_item_index = shuffled.index(first_item)
+    shuffled[first_item_index] = shuffled[0]
+    shuffled[0] = first_item
+    return iter(shuffled)
+
+
+
+
 rest_interface_put('lininoStatus', 'Waiting for Connection')
 
 while try_ping():
@@ -92,10 +106,6 @@ rest_interface_put('lininoStatus', 'Connecting to GS')
 client = Client()
 client.init()
 
-users = open('gs_users', 'r+')
-playlist = open('gs_playlists', 'r+')
-radios = open('gs_radios', 'r+')
-
 # users
 # user0name...userNname
 # user0songs
@@ -104,17 +114,22 @@ radios = open('gs_radios', 'r+')
 rest_interface_put('lininoStatus', 'Building User Info')
 nusers = 0
 nsongs = 0
-for line in users:
-    user_elements = line.split()
-    print(line)
-    for song in client.collection(user_elements[0]):
-#        print(unicode(song.name).encode("utf-8"))
-        rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  (unicode(song.name).encode("utf-8")))
-        rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (unicode(song.artist).encode("utf-8")))
-        nsongs+=1
-    rest_interface_put('user' + str(nusers) + 'songs',  str(nsongs))
-    rest_interface_put('user' + str(nusers) + 'name',  user_elements[1])
-    nusers+=1
+try:
+    users = open('gs_users', 'r+')
+
+    for line in users:
+        user_elements = line.split()
+        print(line)
+        for song in client.collection(user_elements[0]):
+#           print(unicode(song.name).encode("utf-8"))
+            rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  (unicode(song.name).encode("utf-8")))
+            rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (unicode(song.artist).encode("utf-8")))
+            nsongs+=1
+        rest_interface_put('user' + str(nusers) + 'songs',  str(nsongs))
+        rest_interface_put('user' + str(nusers) + 'name',  user_elements[1])
+        nusers+=1
+except IOError:
+    pass
 
 rest_interface_put('users',  str(nusers))
 
@@ -126,16 +141,21 @@ rest_interface_put('users',  str(nusers))
 rest_interface_put('lininoStatus', 'Building Playlist')
 nplaylists = 0
 nsongs = 0
-for line in playlist:
-    print(client.playlist(line).name)
-    for song in client.playlist(line).songs:
-#        print(unicode(song.name).encode("utf-8"))
-        rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), (unicode(song.name).encode("utf-8")))
-        rest_interface_put('playlist' + str(nplaylists) + 'artist' + str(nsongs), (unicode(song.artist).encode("utf-8")))
-        nsongs+=1
-    rest_interface_put('playlist' + str(nplaylists) + 'songs', str(nsongs))
-    rest_interface_put('playlist' + str(nplaylists) + 'name', (unicode(client.playlist(line).name).encode("utf-8")))
-    nplaylists+=1
+try:
+    playlist = open('gs_playlists', 'r+')
+
+    for line in playlist:
+#        print(client.playlist(line).name)
+        for song in client.playlist(line).songs:
+#           print(unicode(song.name).encode("utf-8"))
+            rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), (unicode(song.name).encode("utf-8")))
+            rest_interface_put('playlist' + str(nplaylists) + 'artist' + str(nsongs), (unicode(song.artist).encode("utf-8")))
+            nsongs+=1
+        rest_interface_put('playlist' + str(nplaylists) + 'songs', str(nsongs))
+        rest_interface_put('playlist' + str(nplaylists) + 'name', (unicode(client.playlist(line).name).encode("utf-8")))
+        nplaylists+=1
+except IOError:
+    pass
 
 rest_interface_put('playlists', str(nplaylists))
 
@@ -143,14 +163,20 @@ rest_interface_put('playlists', str(nplaylists))
 # radios
 # radio0name 
 rest_interface_put('lininoStatus', 'Building Radios')
+
 nradios = 0
 radio = ""
-for line in radios:
-    radio_element = line.split()
-#    print(line)
-    rest_interface_put('radio' + str(nradios) + 'name', (unicode(radio_element[1]).encode("utf-8")))
-    nradios+=1
-    radio = radio_element[0]
+try:
+    radios = open('gs_radios', 'r+')
+
+    for line in radios:
+        radio_element = line.split()
+#       print(line)
+        rest_interface_put('radio' + str(nradios) + 'name', (unicode(radio_element[1]).encode("utf-8")))
+        nradios+=1
+        radio = radio_element[0]
+except IOError:
+    pass
 
 rest_interface_put('radios', str(nradios))
 
@@ -169,7 +195,11 @@ print(rest_interface_get('radio0name'))
 mpg123_proc = subprocess.Popen(['mpg123', '-R'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
 rest_interface_put('lininoStatus', 'Ready')
-for song in client.radio(radio):
+
+song_iter = randomly(client.playlist(94228635).songs, 3)
+
+#for song in client.radio(radio):
+for song in song_iter:
     prev_pos = -1
     load_stream(mpg123_proc, song)
 
@@ -191,6 +221,8 @@ for song in client.radio(radio):
 
             if (eos != -1) :
                 break
+# This is to disable playback, so that we don't have to wait for the full audio to play
+#        stop_stream(mpg123_proc)
         if prev_pos != current_pos :   
 #            print(str(current_pos) + " - " + str(song_duration))
             rest_interface_put('nowPlaying_pos', str(current_pos))
