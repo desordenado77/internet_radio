@@ -84,7 +84,7 @@ def try_ping():
     return 0
 
 
-def randomly(seq, start):    
+def random_iter(seq, start):    
     shuffled = list(seq)
     first_item = shuffled[start]
     random.shuffle(shuffled)
@@ -93,6 +93,9 @@ def randomly(seq, start):
     shuffled[0] = first_item
     return iter(shuffled)
 
+def reorder_iter(seq, start):
+    reorder = list(seq)
+    return iter(reorder[start:len(reorder)]+reorder[0:start])
 
 
 
@@ -196,7 +199,8 @@ mpg123_proc = subprocess.Popen(['mpg123', '-R'], stdin=subprocess.PIPE, stdout=s
 
 rest_interface_put('lininoStatus', 'Ready')
 
-song_iter = randomly(client.playlist(94228635).songs, 3)
+#song_iter = random_iter(client.playlist(94228635).songs, 3)
+song_iter = reorder_iter(client.playlist(94228635).songs, 1)
 
 #for song in client.radio(radio):
 for song in song_iter:
