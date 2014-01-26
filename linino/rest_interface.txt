@@ -21,3 +21,15 @@
 # nowPlaying_dur
 
 # lininoStatus
+
+# command, commandData1, commandData2
+#   playRadio       /radioNum           /null
+#   playUser        /userNum            /songNum
+#   playPlayList    /playlistNum        /songNum
+#   playPopular     /month,week,year    /null
+#   shufle          /enable             /null
+#   volume          /percentage         /null
+#   pause           /null               /null
+#   next            /null               /null
+#   prev            /null               /null
+#   restart         /null               /null
