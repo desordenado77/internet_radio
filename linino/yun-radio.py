@@ -283,11 +283,11 @@ while 1:
             element = 0
             playlist = rest_interface_get('commandData1')
             playlist_song = rest_interface_get('commandData2')
-            audio_iter = client.playlist(playlist_array[int(user)]).songs
+            audio_iter = client.playlist(playlist_array[int(playlist)]).songs
             if shuffle:
-                audio_iter = random_iter(audio_iter, int(user_song))
+                audio_iter = random_iter(audio_iter, int(playlist_song))
             else:
-                audio_iter = reorder_iter(audio_iter, int(user_song))
+                audio_iter = reorder_iter(audio_iter, int(playlist_song))
             stop_stream(mpg123_proc)
 
         elif command == 'playPopular\n':

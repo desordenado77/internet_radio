@@ -1,0 +1,2 @@
+echo enable > commandData1
+echo shuffle > command

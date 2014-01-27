@@ -1,0 +1,2 @@
+echo 1 > commandData1
+echo playRadio > command

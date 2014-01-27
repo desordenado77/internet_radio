@@ -1,0 +1,2 @@
+echo disable > commandData1
+echo shuffle > command
