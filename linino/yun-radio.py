@@ -16,7 +16,8 @@ from grooveshark.classes import Radio
 
 # global variables
 
-linino = 0
+linino = 1
+path = './'
 users_array = []
 playlist_array = []
 radios_array = []
@@ -117,6 +118,7 @@ def reorder_iter(seq, start):
 
 def generate_users():
     global users_array
+    global path
 
     # users
     # user0name...userNname
@@ -126,7 +128,7 @@ def generate_users():
     nsongs = 0
     nusers = 0
     try:
-        users = open('gs_users', 'r+')
+        users = open(path + 'gs_users', 'r+')
 
         for line in users:
             user_elements = line.split()
@@ -150,6 +152,7 @@ def generate_users():
 
 def generate_playlists():
     global playlist_array
+    global path
 
     # playlists
     # playlist0name
@@ -159,7 +162,7 @@ def generate_playlists():
     nplaylists = 0
     nsongs = 0
     try:
-        playlist = open('gs_playlists', 'r+')
+        playlist = open(path + 'gs_playlists', 'r+')
 
         for line in playlist:
             playlist_array.append(line)
@@ -182,13 +185,14 @@ def generate_playlists():
 
 def generate_radios():
     global radios_array
+    global path
 
     # radios
     # radio0name 
     nradios = 0
     radio = ""
     try:
-        radios = open('gs_radios', 'r+')
+        radios = open(path + 'gs_radios', 'r+')
 
         for line in radios:
             radio_element = line.split()
@@ -211,7 +215,11 @@ def generate_radios():
 
 #main code
 
-rest_interface_put('lininoStatus', 'Waiting for Connection')
+if linino:
+    path = '/root/examples-pygrooveshark/'
+
+
+rest_interface_put('lininoStatus', 'Waiting Connection')
 
 while try_ping():
     time.sleep(1)
@@ -229,7 +237,7 @@ rest_interface_put('lininoStatus', 'Building Playlist')
 
 generate_playlists()
 
-rest_interface_put('lininoStatus', 'Building Radios')
+rest_interface_put('lininoStatus', 'Building Radios ')
 
 generate_radios()
 
@@ -238,8 +246,6 @@ song_duration = 0
 
 rest_interface_put('lininoStatus', 'Starting Decoder')
 
-print(rest_interface_get('radio0name'))
-
 # mpg123 Commands:
 #   L: load file
 #   P: pause playback
@@ -247,6 +253,7 @@ print(rest_interface_get('radio0name'))
 #   V: volume (%)
 mpg123_proc = subprocess.Popen(['mpg123', '-R'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
+rest_interface_put('command', 'none')
 rest_interface_put('lininoStatus', 'Ready')
 
 audio_iter = None
