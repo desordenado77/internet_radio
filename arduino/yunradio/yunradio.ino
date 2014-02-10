@@ -2,6 +2,11 @@
 #include <LiquidCrystal.h>
 #include <FileIO.h>
 
+
+/*******************************************
+ ********* REST Interface ******************
+ *******************************************/
+
 char temp[256];
 char temp_cmd[32];
 char temp_cmd_1[32];
@@ -193,154 +198,304 @@ void setStartingStatus() {
   Bridge.put("lininoStatus", "Starting radio"); 
 }
 
-#define    GENRE_NONE             0
-#define    GENRE_ROCK             12
-#define    GENRE_BLUES            230
-#define    GENRE_ELECTRONICA      67
-#define    GENRE_CLASSICROCK      3529
-#define    GENRE_INDIE            136
-#define    GENRE_METAL            17
 
-
-int stations[] = { GENRE_NONE,
-    GENRE_ROCK,
-    GENRE_BLUES,
-    GENRE_ELECTRONICA,
-    GENRE_CLASSICROCK,
-    GENRE_INDIE,
-    GENRE_METAL };
-
-
-String stations_str[] = { "None",
-    "Rock",
-    "Blues",
-    "Electronica",
-    "Classic Rock",
-    "Indie",
-    "Metal" };
-    
-int genres;
-int val = 0;
-int enc_val = 0;
-int prevVal = 0;
-Process radio_process;
-String label_song, label_artist;
-
-
+/*******************************************
+ ********* LCD display    ******************
+ *******************************************/
+#define LCD_LENGTH 16
+#define LCD_LINES  2
+#define LCD_REFRESH_TIME 800
 
 LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
+
+char line0[64];
+char line1[64];
+
+char* lines[] = { line0, line1 };
+int update[] = {0,0};
+int offset[] = {0,0};
+int len[] = {0,0}; 
+char* clearLine = "                ";
+
+void setLine(int line, char* text) {
+//  MsTimer2::stop();
+  char* the_line = lines[line];
+
+  if(strcmp(the_line, text)!=0) {
+    int line_length = strlen(text);
+    len[line] = line_length;
+    if(line_length<LCD_LENGTH){
+      memcpy(the_line,text,line_length);
+      memcpy(the_line+line_length, clearLine, LCD_LENGTH-line_length);
+      the_line[LCD_LENGTH] = '\0';
+    }
+    else {
+      strcpy(the_line, text);
+    }
+    update[line] = 1;
+    offset[line] = 0;
+    update_screen();
+  }
+//  MsTimer2::start();
+}
+
+void update_screen() {
+  int i;
+  for(i=0;i<LCD_LINES;i++) {
+    if(update[i]){
+      lcd.setCursor(0,i);
+      lcd.print(lines[i]);
+      update[i] = 0;
+    }
+    else {
+      if(len[i]>LCD_LENGTH) {
+        lcd.setCursor(0,i);
+        lcd.print(lines[i]+offset[i]);
+        offset[i]++;
+        if((offset[i]+LCD_LENGTH)>len[i]) {
+          offset[i] = 0;
+        }
+      }
+    }
+  }
+}
+
+/*******************************************
+ ********* Rotary Encoder ******************
+ *******************************************/
+
 Encoder knob(2,4);
 int knob_sw = 3;
+unsigned long time_since_last_move = 0;
+unsigned long time_last_move = 0;
+long move = 0;
+long prev_move = 0;
+int sw_value = 0;
+int prev_sw_value = 0;
+unsigned long time_since_last_pbc = 0;
+unsigned long time_last_pbc = 0;
 
-void setup() {
-  Serial.begin(9600);
-  Bridge.begin();
 
-  setStartingStatus();
+long knobRead(){
+  long ret = knob.read();
+
+  prev_move = move;
+  move = ret;
+
+  if(ret != 0) {
+    unsigned long time_now = millis();
+    time_since_last_move = time_now - time_last_move;
+    time_last_move = time_now;
+    knob.write(0);
+  }
   
+  return ret;
+}
+
+// 1 for repeat 0  for back
+int repeat_or_back() {
+  if(move<0 && prev_move<0 && time_since_last_move<1000) {
+    return 0;
+  }
+  return 1;
+}
+
+int buttonPressed() {
+  int value_read = digitalRead(knob_sw);  
+  
+  if(value_read != sw_value) {
+    prev_sw_value = sw_value;
+    sw_value = value_read;
+
+    unsigned long time_now = millis();
+    time_since_last_pbc = time_now - time_last_pbc;
+    time_last_pbc = time_now;
+  }
+  
+  return !sw_value;
+}
+
+unsigned long pbcDuration(){
+  return time_since_last_pbc;
+}
+
+
+/*******************************************
+ ********* Menus          ******************
+ *******************************************/
+
+typedef enum {
+  MENU0_RADIOS = 0,
+  MENU0_USERS,
+  MENU0_PLAYLIST,
+  MENU0_POPULAR,
+  MENU0_NOWPLAYING,
+  MENU0_MAXVALUE,
+  MENU0_NONE = -1
+} MENU0;
+
+char* menu0_str[] = { "- Radios", "- Users", "- PlayList", "- Popular", "- Now Playing" } ;
+int menu0_selected = MENU0_NONE;
+int menu0_view = MENU0_RADIOS;
+
+/*
+  Radio Name
+  User Name
+  Playlist Name
+  Popular Monthly/Weekly
+*/ 
+int menu1_selected = -1;
+int menu1_view = 0;
+
+/*
+  ---
+  Song Name
+  Song Name
+  ---
+*/
+int menu2_selected = -1;
+int menu2_view = 0;
+
+void do_menu0(int knob, int pbc) {
+  setLine(0, "Menu:");
+  setLine(1, menu0_str[menu0_view]);
+Serial.print(menu0_view);
+Serial.println(menu0_str[menu0_view]);
+  if(pbc) {
+    menu0_selected = menu0_view;
+  }
+  else {
+    if(knob>0) {
+      menu0_view++;
+    }
+    if(knob<0) {
+      menu0_view--;
+    }
+    
+    if(menu0_view < 0){
+      menu0_view = 0;
+    }
+    if(menu0_view >= MENU0_MAXVALUE){
+      menu0_view = MENU0_MAXVALUE - 1;
+    }  
+  }
+}
+
+void do_menu_radio(int knob, int pbc) {
+  setLine(0, "Menu/Radio:");
+  setLine(1, getRadioName(menu1_view));
+  if(pbc && (pbcDuration()>1500)) {
+    menu0_selected = MENU0_NONE;
+    menu0_view = MENU0_RADIOS;
+  }
+  else {
+    if(pbc && (pbcDuration()<1500)) {
+      playRadio(menu1_view);
+      menu1_selected = menu1_view;
+    }
+    else {
+      if(knob>0) {
+        menu1_view++;
+      }
+      if(knob<0) {
+        menu1_view--;
+      }
+      
+      if(menu1_view < 0){
+        menu1_view = 0;
+      }
+      int radionum = getRadioNum();
+      if(menu1_view >= radionum){
+        menu1_view = radionum - 1;
+      }      
+    }
+  }
+  
+  
+}
+
+
+
+/*******************************************
+ ********* Other Globals  ******************
+ *******************************************/
+Process radio_process;
+
+
+
+
+/*******************************************
+ ********* Setup          ******************
+ *******************************************/
+void setup() {
+
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
 
   // Print a message to the LCD.
-  lcd.print("Grooveshark!!");
-
+  setLine(0, "YUN Radio!!!");
+  setLine(1, "Booting...");
+//  lcd.print("Grooveshark!!");
+  update_screen();
+  
+  Serial.begin(9600);
+  Bridge.begin();
+  setLine(1, "Booting... Done");
+  delay(500);
+  setStartingStatus();
+  
   pinMode(knob_sw, INPUT);
-  digitalWrite(knob_sw, HIGH);
 
-  genres = sizeof(stations)/sizeof(int);
+  digitalWrite(knob_sw, HIGH);
 
   start_radio();  
   
   while(1) {
     char* lininostatus = getStatus();
-    lcd.setCursor(0,1);
-    
+//    lcd.setCursor(0,1);
+    setLine(1, lininostatus);    
     if(strcmp(lininostatus, "Ready") == 0) {
-      lcd.print("Ready           ");
+//      lcd.print("Ready           ");
       break;
     }
     
-    lcd.print(lininostatus);
-    
-
-    delay(1);
+//    lcd.print(lininostatus);
+    update_screen();
+    delay(800);
   }
 
 }
+
+/*******************************************
+ ********* Loop           ******************
+ *******************************************/
+int prev_button = 0;
 
 void loop() {
-  long knob_value = knob.read();
+  long knob_value = knobRead();
+  int button = buttonPressed();
+  
+  int high_to_low = (button - prev_button) == -1;
 
-  if(knob_value > 0) {
-    enc_val++;
-    if(enc_val>=genres) enc_val = genres - 1;
+  switch(menu0_selected) {
+    case MENU0_NONE:
+      do_menu0(knob_value, high_to_low);
+    break;
+    case MENU0_RADIOS:
+      do_menu_radio(knob_value, high_to_low);
+    break;
   }
-  else {
-    if(knob_value < 0) {
-      enc_val--;
-      if(enc_val<0) enc_val = 0;      
-    }
-  }
-  
-  int sw_value = digitalRead(knob_sw);  
-  
-  Serial.println(sw_value);
-  if(!sw_value){
-    val = enc_val;
-  }
-  
-  if(knob_value!=0 || !sw_value) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Radio:");
-    lcd.setCursor(0, 1);
-    if(enc_val == val) {  
-      lcd.print("-");
-    }
-    lcd.print(stations_str[enc_val]);
-  }
-  knob.write(0);
-
-  
-  if(val != prevVal) {
-    String text;
-    text = "Value: ";
-    text += val;
-
-    start_radio();
-    
-    prevVal = val;
-  } 
-  
-  char labelbuffer_song[256];
-  char labelbuffer_artist[256];
-  Bridge.get("songName", labelbuffer_song, 256); 
-
-  if (String(labelbuffer_song).length() > 0 && label_song != String(labelbuffer_song)){
-    lcd.clear();
-    label_song = String(labelbuffer_song);
-    
-    lcd.setCursor(0, 1);
-    lcd.print(label_song);
-    Bridge.get("songArtist", labelbuffer_artist, 256);
-    label_artist = String(labelbuffer_artist);
-    
-    lcd.setCursor(0, 0);
-    lcd.print(label_artist);
-    
-  }
-  
+  delay(200);
+  prev_button = button;
 }
 
-void start_radio() {
-    String parameter = "";
-    radio_process.close();
-    Process killer;
-    killer.begin("killall");
-    killer.addParameter("mpg123");
-    killer.run();
+void start_radio() {    
     radio_process.begin("python");
     radio_process.addParameter("/root/examples-pygrooveshark/yun-radio.py");
     radio_process.runAsynchronously();
 }
 
+
+void stop_radio() {
+    radio_process.close();
+}
