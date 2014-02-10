@@ -15,9 +15,10 @@ from grooveshark import Client
 from grooveshark.classes import Radio
 
 # global variables
-
+# set linino to 0 to use on PC
 linino = 1
 path = './'
+command_end = '\n'
 users_array = []
 playlist_array = []
 radios_array = []
@@ -95,6 +96,7 @@ def set_volume(proc, val):
 def try_ping():
     try:
         urllib2.urlopen('http://www.grooveshark.com')
+        urllib2.urlopen('http://localhost/data/get/')
     except urllib2.URLError, err:
         print("Connection error " + str(err.reason))
         return 1
@@ -214,17 +216,14 @@ def generate_radios():
 
 
 #main code
-
 if linino:
     path = '/root/examples-pygrooveshark/'
-
-
-rest_interface_put('lininoStatus', 'Waiting Connection')
+    command_end = ''
 
 while try_ping():
     time.sleep(1)
 
-rest_interface_put('lininoStatus', 'Connecting to GS')
+rest_interface_put('lininoStatus', 'Connecting to GroveShark')
 
 client = Client()
 client.init()
@@ -269,12 +268,12 @@ repeat = 0
 while 1:
     command = rest_interface_get('command')
     if command != 'none':
-        if command == 'playRadio\n':
+        if command == 'playRadio'+command_end:
             radio = rest_interface_get('commandData1')
             audio_iter = client.radio(radios_array[int(radio)]).__iter__()
             stop_stream(mpg123_proc)
 
-        elif command == 'playUser\n':
+        elif command == 'playUser'+command_end:
             element = 0
             user = rest_interface_get('commandData1')
             user_song = rest_interface_get('commandData2')
@@ -286,7 +285,7 @@ while 1:
             print("len       " + str(len(audio_iter)))
             stop_stream(mpg123_proc)
 
-        elif command == 'playPlayList\n':
+        elif command == 'playPlayList'+command_end:
             element = 0
             playlist = rest_interface_get('commandData1')
             playlist_song = rest_interface_get('commandData2')
@@ -297,33 +296,33 @@ while 1:
                 audio_iter = reorder_iter(audio_iter, int(playlist_song))
             stop_stream(mpg123_proc)
 
-        elif command == 'playPopular\n':
+        elif command == 'playPopular'+command_end:
             period = rest_interface_get('commandData1')
-            if period == 'daily\n':
+            if period == 'daily'+command_end:
                 print('daily')
                 audio_iter = client.popular(period=client.DAILY)
             else:
                 audio_iter = client.popular(period=client.MONTHLY)
             stop_stream(mpg123_proc)
 
-        elif command == 'shuffle\n':
+        elif command == 'shuffle'+command_end:
             shuffle_str = rest_interface_get('commandData1')
-            if shuffle_str == 'enable\n':
+            if shuffle_str == 'enable'+command_end:
                 shuffle = 1
             else:
                 shuffle = 0
         
-        elif command == 'volume\n':
+        elif command == 'volume'+command_end:
             vol = rest_interface_get('commandData1')
             set_volume(mpg123_proc, int(vol))
 
-        elif command == 'pause\n':
+        elif command == 'pause'+command_end:
             pause_stream(mpg123_proc)
         
-        elif command == 'next\n':
+        elif command == 'next'+command_end:
             stop_stream(mpg123_proc)
 
-        elif command == 'prev\n':
+        elif command == 'prev'+command_end:
             if type(audio_iter) == types.GeneratorType :
                 repeat = 1
             else:
@@ -333,7 +332,7 @@ while 1:
                     element -= 1
             stop_stream(mpg123_proc)
 
-        elif command == 'restart\n':
+        elif command == 'restart'+command_end:
             if type(audio_iter) == types.GeneratorType :
                 repeat = 1
             else:
@@ -341,7 +340,7 @@ while 1:
                     element-=1
             stop_stream(mpg123_proc)
 
-        elif command == 'addUser\n':
+        elif command == 'addUser'+command_end:
             param_id = rest_interface_get('commandData1')
             param_name = rest_interface_get('commandData2')
             try:
@@ -358,7 +357,7 @@ while 1:
             users_array = []
             generate_users()
 
-        elif command == 'addRadio\n':
+        elif command == 'addRadio'+command_end:
             param_id = rest_interface_get('commandData1')
             param_name = rest_interface_get('commandData2')
             try:
@@ -376,7 +375,7 @@ while 1:
             generate_radios()
 
 
-        elif command == 'addPlaylist\n':
+        elif command == 'addPlaylist'+command_end:
             param_id = rest_interface_get('commandData1')
             try:
                 playlists = open('gs_radios', 'a')
