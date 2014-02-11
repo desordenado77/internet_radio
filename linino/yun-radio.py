@@ -27,6 +27,11 @@ shuffle = 0
 
 # functions
 
+import unicodedata
+def strip_accents(s):
+   return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+
 def rest_interface_put(key, value):
     global linino
     url_prefix='http://localhost/data/put/'
@@ -65,9 +70,9 @@ def rest_interface_get(key):
 
 def load_stream(proc, song):
     cmd = 'L ' + song.stream.url +'\n'
-    rest_interface_put('nowPlaying_song', (unicode(song.name).encode("utf-8")))
-    rest_interface_put('nowPlaying_album', (unicode(song.album).encode("utf-8")))
-    rest_interface_put('nowPlaying_artist', (unicode(song.artist).encode("utf-8")))
+    rest_interface_put('nowPlaying_song', (strip_accents(unicode(song.name)).encode("utf-8")))
+    rest_interface_put('nowPlaying_album', (strip_accents(unicode(song.album)).encode("utf-8")))
+    rest_interface_put('nowPlaying_artist', (strip_accents(unicode(song.artist)).encode("utf-8")))
     rest_interface_put('nowPlaying_pos', '0')
     rest_interface_put('nowPlaying_dur', '0')
 #    print(cmd)
@@ -96,7 +101,8 @@ def set_volume(proc, val):
 def try_ping():
     try:
         urllib2.urlopen('http://www.grooveshark.com')
-        urllib2.urlopen('http://localhost/data/get/')
+        if linino:
+            urllib2.urlopen('http://localhost/data/get/')
     except urllib2.URLError, err:
         print("Connection error " + str(err.reason))
         return 1
@@ -138,8 +144,8 @@ def generate_users():
             users_array.append(user_elements[0])
             for song in client.collection(user_elements[0]):
     #           print(unicode(song.name).encode("utf-8"))
-                rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  (unicode(song.name).encode("utf-8")))
-                rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (unicode(song.artist).encode("utf-8")))
+                rest_interface_put('user' + str(nusers) + 'song' + str(nsongs),  (strip_accents(unicode(song.name)).encode("utf-8")))
+                rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (strip_accents(unicode(song.artist)).encode("utf-8")))
                 nsongs+=1
             rest_interface_put('user' + str(nusers) + 'songs',  str(nsongs))
             rest_interface_put('user' + str(nusers) + 'name',  user_elements[1])
@@ -171,11 +177,11 @@ def generate_playlists():
     #        print(client.playlist(line).name)
             for song in client.playlist(line).songs:
     #           print(unicode(song.name).encode("utf-8"))
-                rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), (unicode(song.name).encode("utf-8")))
-                rest_interface_put('playlist' + str(nplaylists) + 'artist' + str(nsongs), (unicode(song.artist).encode("utf-8")))
+                rest_interface_put('playlist' + str(nplaylists) + 'song' + str(nsongs), (strip_accents(unicode(song.name)).encode("utf-8")))
+                rest_interface_put('playlist' + str(nplaylists) + 'artist' + str(nsongs), (strip_accents(unicode(song.artist)).encode("utf-8")))
                 nsongs+=1
             rest_interface_put('playlist' + str(nplaylists) + 'songs', str(nsongs))
-            rest_interface_put('playlist' + str(nplaylists) + 'name', (unicode(client.playlist(line).name).encode("utf-8")))
+            rest_interface_put('playlist' + str(nplaylists) + 'name', (strip_accents(unicode(client.playlist(line).name)).encode("utf-8")))
             nplaylists+=1
 
         playlist.close()
@@ -200,7 +206,7 @@ def generate_radios():
             radio_element = line.split()
             radios_array.append(radio_element[0])
     #       print(line)
-            rest_interface_put('radio' + str(nradios) + 'name', (unicode(radio_element[1]).encode("utf-8")))
+            rest_interface_put('radio' + str(nradios) + 'name', (strip_accents(unicode(radio_element[1])).encode("utf-8")))
             nradios+=1
 
         radios.close()
