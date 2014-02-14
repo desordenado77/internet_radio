@@ -69,34 +69,38 @@ def rest_interface_get(key):
 
 
 def load_stream(proc, song):
-    cmd = 'L ' + song.stream.url +'\n'
     rest_interface_put('nowPlaying_song', (strip_accents(unicode(song.name)).encode("utf-8")))
     rest_interface_put('nowPlaying_album', (strip_accents(unicode(song.album)).encode("utf-8")))
     rest_interface_put('nowPlaying_artist', (strip_accents(unicode(song.artist)).encode("utf-8")))
     rest_interface_put('nowPlaying_pos', '0')
     rest_interface_put('nowPlaying_dur', '0')
-#    print(cmd)
+    cmd = 'L ' + song.stream.url +'\n'
+    print(cmd)
     proc.stdin.write(cmd)
+    proc.stdin.flush()
 
 def pause_stream(proc):
     cmd = 'P\n'
 #    print(cmd)
     proc.stdin.write(cmd)
+    proc.stdin.flush()
 
 def stop_stream(proc):
     cmd = 'S\n'
-#    print(cmd)
+    print(cmd)
     proc.stdin.write(cmd)
+    proc.stdin.flush()
 
 def restart_stream(proc):
     cmd = 'K 0\n'
     proc.stdin.write(cmd)
+    proc.stdin.flush()
 
 def set_volume(proc, val):
     cmd = 'V ' + val + '\n'
 #    print(cmd)
     proc.stdin.write(cmd)
-
+    proc.stdin.flush()
 
 def try_ping():
     try:
@@ -273,10 +277,12 @@ repeat = 0
 
 while 1:
     command = rest_interface_get('command')
+    rest_interface_put('command','none')
     if command != 'none':
         if command == 'playRadio'+command_end:
             radio = rest_interface_get('commandData1')
             audio_iter = client.radio(radios_array[int(radio)]).__iter__()
+            print(" radio " + str(int(radio)))
             stop_stream(mpg123_proc)
 
         elif command == 'playUser'+command_end:
@@ -398,40 +404,41 @@ while 1:
             generate_playlists()
 
     readable = select.select([mpg123_proc.stdout], [], [], 0.25)[0]
+    eos = -1
     for s in readable:
         mpg123_line = mpg123_proc.stdout.readline() 
-#        print(mpg123_line)
-        eos = mpg123_line.find('@P 0')
+        print(mpg123_line)
+        if(eos == -1):
+            eos = mpg123_line.find('@P 0')
         pos = mpg123_line.find('@F')
         
-        if (pos != -1) :
-            current_pos = int(float(mpg123_line.split()[3]))
-            if song.duration == 0 or song.duration == None:
-                song_duration = current_pos + int(float(mpg123_line.split()[4]))
-            else:
-                song_duration = song.duration                    
+    if (pos != -1) :
+        current_pos = int(float(mpg123_line.split()[3]))
+        if song.duration == 0 or song.duration == None:
+            song_duration = current_pos + int(float(mpg123_line.split()[4]))
+        else:
+            song_duration = song.duration                    
 #                print(current_pos + " - " + str(song.duration))
 
-        if (eos != -1) :
-            if audio_iter != None:
-                try:
-                    if type(audio_iter) == types.GeneratorType :
-                        if repeat:
-                            repeat = 0
-                        else:
-                            song = audio_iter.next()
+    if (eos != -1) :
+        if audio_iter != None:
+            try:
+                if type(audio_iter) == types.GeneratorType :
+                    if repeat:
+                        repeat = 0
                     else:
-                        print("element   " + str(element))
-                        print("len       " + str(len(audio_iter)))
-                        song = audio_iter[element]
-                    load_stream(mpg123_proc, song)
-                    prev_pos = -1
-                    current_pos = 0
-                    song_duration = 0
-                    element += 1
-                except StopIteration:
-                    print("End of playback")
-            break
+                        song = audio_iter.next()
+                else:
+                    print("element   " + str(element))
+                    print("len       " + str(len(audio_iter)))
+                    song = audio_iter[element]
+                load_stream(mpg123_proc, song)
+                prev_pos = -1
+                current_pos = 0
+                song_duration = 0
+                element += 1
+            except StopIteration:
+                print("End of playback")
 # This is to disable playback, so that we don't have to wait for the full audio to play
 #        stop_stream(mpg123_proc)
     if prev_pos != current_pos :   
