@@ -44,7 +44,7 @@ char* getCurrentDuration() {
   return temp;
 }
 
-char* getCurrentStatus() {
+char* getCurrentPlayback() {
   int len = sizeof(temp);
   char* ptr = temp;
   Bridge.get("nowPlaying_song", ptr, len);
@@ -117,6 +117,32 @@ char* getUserSongArtist(int user, int song) {
   return temp;
 }
 
+
+char* getUserSongNameAndArtirst(int user, int song) {
+  int len = sizeof(temp);
+  char* ptr = temp;
+  sprintf(temp_cmd, "user%dsong%d", user, song);  
+  Bridge.get(temp_cmd, ptr, len);
+  Serial.println(ptr);
+  ptr+=strlen(temp);
+  *ptr = ' ';
+  ptr++;
+  len--;
+  *ptr = '-';
+  ptr++;
+  len--;
+  *ptr = ' ';
+  ptr++;
+  len--;
+  sprintf(temp_cmd, "user%dartist%d", user, song);
+  Bridge.get(temp_cmd, ptr, len);
+  Serial.println(ptr);
+  ptr+=strlen(ptr);
+  
+  return temp;
+}
+
+
 int getPlaylistsNum() {
   Bridge.get("playlists", temp, sizeof(temp)); 
   return atoi(temp);
@@ -145,6 +171,31 @@ char* getPlaylistSongArtist(int pl, int song) {
   Bridge.get(temp_cmd, temp, sizeof(temp)); 
   return temp;
 }
+
+char* getPlaylistSongNameAndArtist(int pl, int song) {
+  int len = sizeof(temp);
+  char* ptr = temp;
+  sprintf(temp_cmd, "playlist%dsong%d", pl, song);  
+  Bridge.get(temp_cmd, ptr, len);
+  Serial.println(ptr);
+  ptr+=strlen(temp);
+  *ptr = ' ';
+  ptr++;
+  len--;
+  *ptr = '-';
+  ptr++;
+  len--;
+  *ptr = ' ';
+  ptr++;
+  len--;
+  sprintf(temp_cmd, "playlist%dartist%d", pl, song);
+  Bridge.get(temp_cmd, ptr, len);
+  Serial.println(ptr);
+  ptr+=strlen(ptr);
+  
+  return temp;  
+}
+
 
 int getRadioNum() {
   Bridge.get("radios", temp, sizeof(temp)); 
@@ -202,7 +253,7 @@ void shuffle(int enable) {
   }
 }
 
-void volume(int perc) {
+void setVolume(int perc) {
   sprintf(temp_cmd, "%d", perc);
   sendCommand("volume", temp_cmd, NULL);
 }
@@ -254,9 +305,11 @@ LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
 
 char line0[64];
 char line1[64];
+char temp_line[17];
 
 char* lines[] = { line0, line1 };
 int update[] = {0,0};
+unsigned long update_time[] = {0,0};
 int offset[] = {0,0};
 int len[] = {0,0}; 
 char* clearLine = "                ";
@@ -285,16 +338,28 @@ void setLine(int line, char* text) {
 
 void update_screen() {
   int i;
+  unsigned long time_now = millis();
   for(i=0;i<LCD_LINES;i++) {
     if(update[i]){
       lcd.setCursor(0,i);
-      lcd.print(lines[i]);
+      memcpy(temp_line, lines[i], 16);
+      temp_line[17] = '\0';
+      lcd.print(temp_line);
       update[i] = 0;
+      update_time[i] = time_now;
     }
     else {
+      if(time_now<update_time[i]+600){
+        continue;
+      }
       if(len[i]>LCD_LENGTH) {
+        Serial.println(i);
+        Serial.println(len[i]);
         lcd.setCursor(0,i);
-        lcd.print(lines[i]+offset[i]);
+        memcpy(temp_line, lines[i]+offset[i], 16);
+        temp_line[17] = '\0';
+        lcd.print(temp_line);
+        update_time[i] = time_now;
         offset[i]++;
         if((offset[i]+LCD_LENGTH)>len[i]) {
           offset[i] = 0;
@@ -302,6 +367,30 @@ void update_screen() {
       }
     }
   }
+}
+
+void setLineVolume(int line, int volume) {
+  temp_line[0] = ' ';
+  temp_line[1] = '-';
+  temp_line[2] = '|';
+
+  temp_line[15] = ' ';
+  temp_line[14] = '-';
+  temp_line[13] = '|';
+  temp_line[16] = '\0';
+  
+  int i;
+  for(i=0;i<10;i++) {
+    if(volume>i*10) {
+      temp_line[3+i] = 'X';
+    }
+    else {
+      temp_line[3+i] = ' ';
+    }      
+  }
+  Serial.println(volume);
+  Serial.println(temp_line);
+  setLine(line, temp_line);
 }
 
 /*******************************************
@@ -381,7 +470,14 @@ typedef enum {
   MENU0_NONE = -1
 } MENU0;
 
+typedef enum {
+  MENU1_CONFIG_SHUFFLE = 0,
+  MENU1_CONFIG_VOLUME,
+  MENU1_CONFIG_STATUS,  
+} MENU1_CONFIG;
+
 char* menu0_str[] = { "- Radios", "- Users", "- PlayList", "- Popular", "- Now Playing", "- Configuration" } ;
+char* menu1_config_str[] = { "Shuffle", "Volume", "Status" };
 int menu0_selected = MENU0_NONE;
 int menu0_view = MENU0_RADIOS;
 
@@ -401,6 +497,10 @@ int menu1_pl_selected = -1;
 int menu1_pl_view = 0;
 int menu2_pl_selected = -1;
 int menu2_pl_view = 0;
+int menu1_config_selected = -1;
+int menu1_config_view = 0;
+
+int volume = 100;
 
 /*
   ---
@@ -437,7 +537,7 @@ Serial.println(menu0_str[menu0_view]);
 }
 
 void do_menu1_radio(int knob, int pbc) {
-  setLine(0, "Menu/Radio:");
+  setLine(0, "M/Radio:");
   setLine(1, getRadioName(menu1_radio_view));
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -469,7 +569,7 @@ void do_menu1_radio(int knob, int pbc) {
 
 
 void do_menu1_users(int knob, int pbc) {
-  setLine(0, "Menu/User:");
+  setLine(0, "M/User:");
   setLine(1, getUserName(menu1_users_view));
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -501,9 +601,9 @@ void do_menu1_users(int knob, int pbc) {
 
 
 void do_menu2_users(int knob, int pbc) {
-  sprintf(temp_menu, "Menu/User/%s:",getUserName(menu1_users_selected)); 
+  sprintf(temp_menu, "M/User/%s:",getUserName(menu1_users_selected)); 
   setLine(0, temp_menu);
-  setLine(1, getUserSongName(menu1_users_selected, menu2_users_view));
+  setLine(1, getUserSongNameAndArtirst(menu1_users_selected, menu2_users_view));
   if(pbc && (pbcDuration()>1500)) {
     menu1_users_view = menu1_users_selected;
     menu1_users_selected = -1;
@@ -535,7 +635,7 @@ void do_menu2_users(int knob, int pbc) {
 
 
 void do_menu1_pl(int knob, int pbc) {
-  setLine(0, "Menu/PL:");
+  setLine(0, "M/PL:");
   Serial.println(menu1_pl_view);
   Serial.println(getPlaylistName(0));
   setLine(1, getPlaylistName(menu1_pl_view));
@@ -569,9 +669,9 @@ void do_menu1_pl(int knob, int pbc) {
 
 
 void do_menu2_pl(int knob, int pbc) {
-  sprintf(temp_menu, "Menu/PL/%s:",getPlaylistName(menu1_pl_selected)); 
+  sprintf(temp_menu, "M/PL/%s:",getPlaylistName(menu1_pl_selected)); 
   setLine(0, temp_menu);
-  setLine(1, getPlaylistSongName(menu1_pl_selected, menu2_pl_view));
+  setLine(1, getPlaylistSongNameAndArtist(menu1_pl_selected, menu2_pl_view));
   if(pbc && (pbcDuration()>1500)) {
     menu1_pl_view = menu1_pl_selected;
     menu1_pl_selected = -1;
@@ -605,8 +705,8 @@ void do_menu2_pl(int knob, int pbc) {
 
 
 void do_menu_nowplaying(int knob, int pbc) {
-  setLine(0, "Menu/NowPlaying:");
-  setLine(1, getCurrentStatus());
+  setLine(0, "M/NowPlaying:");
+  setLine(1, getCurrentPlayback());
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
     menu0_view = MENU0_RADIOS;
@@ -624,6 +724,75 @@ void do_menu_nowplaying(int knob, int pbc) {
     }
   }
 }
+
+
+void do_menu1_config(int knob, int pbc) {
+  setLine(0, "M/Config:");
+  setLine(1, menu1_config_str[menu1_config_view]);
+  if(pbc && (pbcDuration()>1500)) {
+    menu0_selected = MENU0_NONE;
+    menu0_view = MENU0_RADIOS;
+    menu1_config_view = 0;
+  }
+  else {
+    if(pbc && (pbcDuration()<1500)) {
+      menu1_config_selected = menu1_config_view;
+    }
+    else {
+      if(knob>0) {
+        menu1_config_view++;
+      }
+      if(knob<0) {
+        menu1_config_view--;
+      }
+      
+      if(menu1_config_view < 0){
+        menu1_config_view = 0;
+      }
+      int confignum = sizeof(menu1_config_str)/sizeof(char*);
+      if(menu1_config_view >= confignum){
+        menu1_config_view = confignum - 1;
+      }      
+    }
+  }
+}
+
+
+
+void do_menu2_config_volume(int knob, int pbc) {
+  setLine(0, "M/Config/Volume:");
+  setLineVolume(1, volume);
+  if(pbc && (pbcDuration()>1500)) {
+    menu1_config_view = menu1_config_selected;
+    menu1_config_selected = -1;
+  }
+  else {
+    if(knob>0) {
+      volume+=5;
+    }
+    if(knob<0) {
+      volume-=5;
+    }
+    if(volume < 0){
+      volume = 0;
+    }
+    if(volume >= 100){
+      volume = 100;
+    }
+    setVolume(volume);
+  }
+}
+
+
+void do_menu2_config_status(int knob, int pbc) {
+  setLine(0, "M/Config/Status:");
+  setLine(1, getStatus());
+  if(pbc) {
+    menu1_config_view = menu1_config_selected;
+    menu1_config_selected = -1;
+  }
+}
+
 
 /*******************************************
  ********* Other Globals  ******************
@@ -658,7 +827,7 @@ void setup() {
   digitalWrite(knob_sw, HIGH);
 
   start_radio();  
-  
+/*
   while(1) {
     char* lininostatus = getStatus();
 //    lcd.setCursor(0,1);
@@ -672,7 +841,7 @@ void setup() {
     update_screen();
     delay(800);
   }
-
+*/
 }
 
 /*******************************************
@@ -711,6 +880,23 @@ void loop() {
     break;
     case MENU0_NOWPLAYING:
       do_menu_nowplaying(knob_value, high_to_low);
+    break;
+    case MENU0_CONFIG:
+      if(menu1_config_selected == -1) {
+        do_menu1_config(knob_value, high_to_low);
+      }
+      else {
+        switch(menu1_config_selected) {
+          case MENU1_CONFIG_SHUFFLE:
+          break;
+          case MENU1_CONFIG_VOLUME:
+            do_menu2_config_volume(knob_value, high_to_low);
+          break;
+          case MENU1_CONFIG_STATUS:
+            do_menu2_config_status(knob_value, high_to_low);
+          break;
+        }
+      }
     break;
   }
   update_screen();
