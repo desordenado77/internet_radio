@@ -69,6 +69,10 @@ def rest_interface_get(key):
 
 
 def load_stream(proc, song):
+    cmd = 'SILENCE\n'
+    print(cmd)
+    proc.stdin.write(cmd)
+    proc.stdin.flush()
     rest_interface_put('nowPlaying_song', (strip_accents(unicode(song.name)).encode("utf-8")))
     rest_interface_put('nowPlaying_album', (strip_accents(unicode(song.album)).encode("utf-8")))
     rest_interface_put('nowPlaying_artist', (strip_accents(unicode(song.artist)).encode("utf-8")))
@@ -277,7 +281,9 @@ repeat = 0
 
 while 1:
     command = rest_interface_get('command')
-    rest_interface_put('command','none')
+    if command != 'none':
+        print(command)
+        rest_interface_put('command','none')
     if command != 'none':
         if command == 'playRadio'+command_end:
             radio = rest_interface_get('commandData1')
@@ -405,6 +411,7 @@ while 1:
 
     readable = select.select([mpg123_proc.stdout], [], [], 0.25)[0]
     eos = -1
+    pos = -1
     for s in readable:
         mpg123_line = mpg123_proc.stdout.readline() 
         print(mpg123_line)
