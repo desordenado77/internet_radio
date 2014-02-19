@@ -7,7 +7,7 @@
  ********* REST Interface ******************
  *******************************************/
 
-char temp[256];
+char temp[128];
 char temp_cmd[32];
 char temp_cmd_1[32];
 
@@ -244,7 +244,13 @@ void playPopularDaily() {
   sendCommand("playPopular", "daily", NULL);
 }
 
-void shuffle(int enable) {
+void playPopular(int daily) {
+  if(daily)
+      playPopularDaily();
+  else
+      playPopularMonthly();
+}
+void setShuffle(int enable) {
   if(enable){
     sendCommand("shuffle", "enable", NULL);
   }
@@ -253,12 +259,18 @@ void shuffle(int enable) {
   }
 }
 
+int prevVolume = 100;
+
 void setVolume(int perc) {
-  sprintf(temp_cmd, "%d", perc);
-  sendCommand("volume", temp_cmd, NULL);
+  if(perc != prevVolume) {
+    sprintf(temp_cmd, "%d", perc);
+    sendCommand("volume", temp_cmd, NULL);
+    prevVolume = perc;
+  }
+  
 }
 
-void pause(){
+void pause_resume(){
   sendCommand("pause", NULL, NULL);
 }
 
@@ -382,7 +394,7 @@ void setLineVolume(int line, int volume) {
   int i;
   for(i=0;i<10;i++) {
     if(volume>i*10) {
-      temp_line[3+i] = 'X';
+      temp_line[3+i] = 255;
     }
     else {
       temp_line[3+i] = ' ';
@@ -476,8 +488,10 @@ typedef enum {
   MENU1_CONFIG_STATUS,  
 } MENU1_CONFIG;
 
-char* menu0_str[] = { "- Radios", "- Users", "- PlayList", "- Popular", "- Now Playing", "- Configuration" } ;
+char* menu0_str[] = { "Radios", "Users", "PlayList", "Popular", "Now Playing", "Configuration" } ;
+char* menu1_popular_str[] = { "Monthly", "Daily" };
 char* menu1_config_str[] = { "Shuffle", "Volume", "Status" };
+char* menu2_config_shuffle_str[] = { "disable", "enable" };
 int menu0_selected = MENU0_NONE;
 int menu0_view = MENU0_RADIOS;
 
@@ -499,8 +513,12 @@ int menu2_pl_selected = -1;
 int menu2_pl_view = 0;
 int menu1_config_selected = -1;
 int menu1_config_view = 0;
+int menu1_popular_selected = -1;
+int menu1_popular_view = 0;
+int menu2_config_shuffle_view = 0;
 
 int volume = 100;
+int shuffle = 0;
 
 /*
   ---
@@ -537,7 +555,7 @@ Serial.println(menu0_str[menu0_view]);
 }
 
 void do_menu1_radio(int knob, int pbc) {
-  setLine(0, "M/Radio:");
+  setLine(0, "Radio:");
   setLine(1, getRadioName(menu1_radio_view));
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -547,6 +565,8 @@ void do_menu1_radio(int knob, int pbc) {
   else {
     if(pbc && (pbcDuration()<1500)) {
       playRadio(menu1_radio_view);
+      menu0_selected = MENU0_NOWPLAYING;
+      menu0_view = MENU0_NOWPLAYING;      
     }
     else {
       if(knob>0) {
@@ -569,7 +589,7 @@ void do_menu1_radio(int knob, int pbc) {
 
 
 void do_menu1_users(int knob, int pbc) {
-  setLine(0, "M/User:");
+  setLine(0, "User:");
   setLine(1, getUserName(menu1_users_view));
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -601,7 +621,7 @@ void do_menu1_users(int knob, int pbc) {
 
 
 void do_menu2_users(int knob, int pbc) {
-  sprintf(temp_menu, "M/User/%s:",getUserName(menu1_users_selected)); 
+  sprintf(temp_menu, "User/%s:",getUserName(menu1_users_selected)); 
   setLine(0, temp_menu);
   setLine(1, getUserSongNameAndArtirst(menu1_users_selected, menu2_users_view));
   if(pbc && (pbcDuration()>1500)) {
@@ -613,6 +633,8 @@ void do_menu2_users(int knob, int pbc) {
     if(pbc && (pbcDuration()<1500)) {
       menu2_users_selected = menu2_users_view;
       playUser(menu1_users_selected,menu2_users_selected); 
+      menu0_selected = MENU0_NOWPLAYING;
+      menu0_view = MENU0_NOWPLAYING;
     }
     else {
       if(knob>0) {
@@ -635,7 +657,7 @@ void do_menu2_users(int knob, int pbc) {
 
 
 void do_menu1_pl(int knob, int pbc) {
-  setLine(0, "M/PL:");
+  setLine(0, "PlayList:");
   Serial.println(menu1_pl_view);
   Serial.println(getPlaylistName(0));
   setLine(1, getPlaylistName(menu1_pl_view));
@@ -669,7 +691,7 @@ void do_menu1_pl(int knob, int pbc) {
 
 
 void do_menu2_pl(int knob, int pbc) {
-  sprintf(temp_menu, "M/PL/%s:",getPlaylistName(menu1_pl_selected)); 
+  sprintf(temp_menu, "PlayList/%s:",getPlaylistName(menu1_pl_selected)); 
   setLine(0, temp_menu);
   setLine(1, getPlaylistSongNameAndArtist(menu1_pl_selected, menu2_pl_view));
   if(pbc && (pbcDuration()>1500)) {
@@ -681,6 +703,9 @@ void do_menu2_pl(int knob, int pbc) {
     if(pbc && (pbcDuration()<1500)) {
       menu2_pl_selected = menu2_pl_view;
       playPlaylist(menu1_pl_selected,menu2_pl_selected); 
+      menu0_selected = MENU0_NOWPLAYING;
+      menu0_view = MENU0_NOWPLAYING;
+
     }
     else {
       if(knob>0) {
@@ -702,10 +727,43 @@ void do_menu2_pl(int knob, int pbc) {
 }
 
 
+void do_menu1_popular(int knob, int pbc) {
+  setLine(0, "Popular:");
+  setLine(1, menu1_popular_str[menu1_popular_view]);
+  if(pbc && (pbcDuration()>1500)) {
+    menu0_selected = MENU0_NONE;
+    menu0_view = MENU0_RADIOS;
+    menu1_popular_view = 0;
+  }
+  else {
+    if(pbc && (pbcDuration()<1500)) {
+      playPopular(menu1_popular_view);
+      menu0_selected = MENU0_NOWPLAYING;
+      menu0_view = MENU0_NOWPLAYING;
+    }
+    else {
+      if(knob>0) {
+        menu1_popular_view++;
+      }
+      if(knob<0) {
+        menu1_popular_view--;
+      }
+      
+      if(menu1_popular_view < 0){
+        menu1_popular_view = 0;
+      }
+      int radionum = sizeof(menu1_popular_str)/sizeof(char*);
+      if(menu1_popular_view >= radionum){
+        menu1_popular_view = radionum - 1;
+      }      
+    }
+  }
+}
+
 
 
 void do_menu_nowplaying(int knob, int pbc) {
-  setLine(0, "M/NowPlaying:");
+  setLine(0, "NowPlaying:");
   setLine(1, getCurrentPlayback());
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -713,13 +771,19 @@ void do_menu_nowplaying(int knob, int pbc) {
   }
   else {
     if(pbc && (pbcDuration()<1500)) {
+      pause_resume();
     }
     else {
       if(knob>0) {
         next();
       }
       if(knob<0) {
-        restart();
+        if(repeat_or_back()) {
+          restart();
+        }
+        else {
+          prev();
+        }
       }
     }
   }
@@ -727,7 +791,7 @@ void do_menu_nowplaying(int knob, int pbc) {
 
 
 void do_menu1_config(int knob, int pbc) {
-  setLine(0, "M/Config:");
+  setLine(0, "Config:");
   setLine(1, menu1_config_str[menu1_config_view]);
   if(pbc && (pbcDuration()>1500)) {
     menu0_selected = MENU0_NONE;
@@ -757,10 +821,41 @@ void do_menu1_config(int knob, int pbc) {
   }
 }
 
-
+void do_menu2_config_shuffle(int knob, int pbc) {
+  setLine(0, "Config/Shuffle:");
+  setLine(1, menu2_config_shuffle_str[menu2_config_shuffle_view]);
+  if(pbc && (pbcDuration()>1500)) {
+    menu1_config_view = menu1_config_selected;
+    menu1_config_selected = -1;
+  }
+  else {
+    if(pbc && (pbcDuration()<1500)) {
+      setShuffle( menu2_config_shuffle_view );
+      
+      menu1_config_selected = menu1_config_view;
+      menu1_config_selected = -1;
+    }
+    else {
+      if(knob>0) {
+        menu2_config_shuffle_view++;
+      }
+      if(knob<0) {
+        menu2_config_shuffle_view--;
+      }
+      
+      if(menu2_config_shuffle_view < 0){
+        menu2_config_shuffle_view = 0;
+      }
+      int confignum = sizeof(menu2_config_shuffle_str)/sizeof(char*);
+      if(menu2_config_shuffle_view >= confignum){
+        menu2_config_shuffle_view = confignum - 1;
+      }      
+    }
+  }
+}
 
 void do_menu2_config_volume(int knob, int pbc) {
-  setLine(0, "M/Config/Volume:");
+  setLine(0, "Config/Volume:");
   setLineVolume(1, volume);
   if(pbc && (pbcDuration()>1500)) {
     menu1_config_view = menu1_config_selected;
@@ -768,10 +863,10 @@ void do_menu2_config_volume(int knob, int pbc) {
   }
   else {
     if(knob>0) {
-      volume+=5;
+      volume+=2;
     }
     if(knob<0) {
-      volume-=5;
+      volume-=2;
     }
     if(volume < 0){
       volume = 0;
@@ -785,7 +880,7 @@ void do_menu2_config_volume(int knob, int pbc) {
 
 
 void do_menu2_config_status(int knob, int pbc) {
-  setLine(0, "M/Config/Status:");
+  setLine(0, "Config/Status:");
   setLine(1, getStatus());
   if(pbc) {
     menu1_config_view = menu1_config_selected;
@@ -878,6 +973,9 @@ void loop() {
         do_menu2_pl(knob_value, high_to_low);
       }
     break;
+    case MENU0_POPULAR:
+      do_menu1_popular(knob_value, high_to_low);
+    break;
     case MENU0_NOWPLAYING:
       do_menu_nowplaying(knob_value, high_to_low);
     break;
@@ -888,6 +986,7 @@ void loop() {
       else {
         switch(menu1_config_selected) {
           case MENU1_CONFIG_SHUFFLE:
+            do_menu2_config_shuffle(knob_value, high_to_low);
           break;
           case MENU1_CONFIG_VOLUME:
             do_menu2_config_volume(knob_value, high_to_low);

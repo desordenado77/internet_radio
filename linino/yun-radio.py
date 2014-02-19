@@ -332,7 +332,7 @@ while 1:
         
         elif command == 'volume'+command_end:
             vol = rest_interface_get('commandData1')
-            set_volume(mpg123_proc, int(vol))
+            set_volume(mpg123_proc, vol)
 
         elif command == 'pause'+command_end:
             pause_stream(mpg123_proc)
