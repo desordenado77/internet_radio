@@ -635,6 +635,7 @@ void do_menu2_users(int knob, int pbc) {
       playUser(menu1_users_selected,menu2_users_selected); 
       menu0_selected = MENU0_NOWPLAYING;
       menu0_view = MENU0_NOWPLAYING;
+      menu1_users_selected = -1;
     }
     else {
       if(knob>0) {
@@ -705,7 +706,7 @@ void do_menu2_pl(int knob, int pbc) {
       playPlaylist(menu1_pl_selected,menu2_pl_selected); 
       menu0_selected = MENU0_NOWPLAYING;
       menu0_view = MENU0_NOWPLAYING;
-
+      menu1_pl_selected = -1;
     }
     else {
       if(knob>0) {
@@ -1001,6 +1002,8 @@ void loop() {
   update_screen();
   delay(80);
   prev_button = button;
+  // not sure if this is needed, but just in case let's flush the process buffer
+  radio_process.flush();
 }
 
 void start_radio() {    
