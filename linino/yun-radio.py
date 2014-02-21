@@ -450,11 +450,13 @@ while 1:
                     print("element   " + str(element))
                     print("len       " + str(len(audio_iter)))
                     song = audio_iter[element]
+                    element += 1
+                    if element >= len(audio_iter):
+                        element = len(audio_iter)-1
                 load_stream(mpg123_proc, song)
                 prev_pos = -1
                 current_pos = 0
                 song_duration = 0
-                element += 1
             except StopIteration:
                 print("End of playback")
 # This is to disable playback, so that we don't have to wait for the full audio to play
