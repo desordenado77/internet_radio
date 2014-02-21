@@ -48,11 +48,15 @@ def rest_interface_get(key):
     url_prefix='http://localhost/data/get/'
     url = url_prefix + key
     if linino:
-        response = urllib2.urlopen(url)
-        decoded = json.load(response)
+        try:
+            response = urllib2.urlopen(url)
+            decoded = json.load(response)
 #    print(decoded['value'])
-        response.close()
-        return decoded['value']
+            response.close()
+            return decoded['value']
+        except:
+            return 'none'
+        
     else:
         ret = ''
         try:
@@ -147,7 +151,7 @@ def generate_users():
         users = open(path + 'gs_users', 'r+')
 
         for line in users:
-            user_elements = line.split()
+            user_elements = line.split(' ', 1)
             print(line)
             users_array.append(user_elements[0])
             for song in client.collection(user_elements[0]):
@@ -156,7 +160,7 @@ def generate_users():
                 rest_interface_put('user' + str(nusers) + 'artist' + str(nsongs),  (strip_accents(unicode(song.artist)).encode("utf-8")))
                 nsongs+=1
             rest_interface_put('user' + str(nusers) + 'songs',  str(nsongs))
-            rest_interface_put('user' + str(nusers) + 'name',  user_elements[1])
+            rest_interface_put('user' + str(nusers) + 'name',  user_elements[1].replace('\n',''))
             nusers+=1
 
         users.close()
@@ -211,10 +215,10 @@ def generate_radios():
         radios = open(path + 'gs_radios', 'r+')
 
         for line in radios:
-            radio_element = line.split()
+            radio_element = line.split(' ', 1)
             radios_array.append(radio_element[0])
     #       print(line)
-            rest_interface_put('radio' + str(nradios) + 'name', (strip_accents(unicode(radio_element[1])).encode("utf-8")))
+            rest_interface_put('radio' + str(nradios) + 'name', (strip_accents(unicode(radio_element[1].replace('\n',''))).encode("utf-8")))
             nradios+=1
 
         radios.close()
@@ -287,32 +291,35 @@ while 1:
     if command != 'none':
         if command == 'playRadio'+command_end:
             radio = rest_interface_get('commandData1')
-            audio_iter = client.radio(radios_array[int(radio)]).__iter__()
-            print(" radio " + str(int(radio)))
-            stop_stream(mpg123_proc)
+            if radio != 'none':
+                audio_iter = client.radio(radios_array[int(radio)]).__iter__()
+                print(" radio " + str(int(radio)))
+                stop_stream(mpg123_proc)
 
         elif command == 'playUser'+command_end:
             element = 0
             user = rest_interface_get('commandData1')
             user_song = rest_interface_get('commandData2')
-            audio_iter = client.collection(users_array[int(user)])
-            if shuffle:
-                audio_iter = random_iter(audio_iter, int(user_song))
-            else:
-                audio_iter = reorder_iter(audio_iter, int(user_song))
-            print("len       " + str(len(audio_iter)))
-            stop_stream(mpg123_proc)
+            if (user != 'none') & (user_song != 'none'):
+                audio_iter = client.collection(users_array[int(user)])
+                if shuffle:
+                    audio_iter = random_iter(audio_iter, int(user_song))
+                else:
+                    audio_iter = reorder_iter(audio_iter, int(user_song))
+                print("len       " + str(len(audio_iter)))
+                stop_stream(mpg123_proc)
 
         elif command == 'playPlayList'+command_end:
             element = 0
             playlist = rest_interface_get('commandData1')
             playlist_song = rest_interface_get('commandData2')
-            audio_iter = client.playlist(playlist_array[int(playlist)]).songs
-            if shuffle:
-                audio_iter = random_iter(audio_iter, int(playlist_song))
-            else:
-                audio_iter = reorder_iter(audio_iter, int(playlist_song))
-            stop_stream(mpg123_proc)
+            if (playlist != 'none') & (playlist_song != 'none'):
+                audio_iter = client.playlist(playlist_array[int(playlist)]).songs
+                if shuffle:
+                    audio_iter = random_iter(audio_iter, int(playlist_song))
+                else:
+                    audio_iter = reorder_iter(audio_iter, int(playlist_song))
+                stop_stream(mpg123_proc)
 
         elif command == 'playPopular'+command_end:
             period = rest_interface_get('commandData1')
@@ -332,7 +339,8 @@ while 1:
         
         elif command == 'volume'+command_end:
             vol = rest_interface_get('commandData1')
-            set_volume(mpg123_proc, vol)
+            if vol != 'none':
+                set_volume(mpg123_proc, vol)
 
         elif command == 'pause'+command_end:
             pause_stream(mpg123_proc)
@@ -361,53 +369,56 @@ while 1:
         elif command == 'addUser'+command_end:
             param_id = rest_interface_get('commandData1')
             param_name = rest_interface_get('commandData2')
-            try:
-                users = open('gs_users', 'a')
-                
-                users_param = param_id + " " + param_name
+            if (param_id != 'none') & (param_name != 'none'):
+                try:
+                    users = open('gs_users', 'a')
+                    
+                    users_param = param_id + " " + param_name
 
-                users.write(users_param.replace('\n', ''))
+                    users.write(users_param.replace('\n', ''))
 
-                users.close()
-            except IOError:
-                pass
+                    users.close()
+                except IOError:
+                    pass
 
-            users_array = []
-            generate_users()
+                users_array = []
+                generate_users()
 
         elif command == 'addRadio'+command_end:
             param_id = rest_interface_get('commandData1')
             param_name = rest_interface_get('commandData2')
-            try:
-                radios = open('gs_radios', 'a')
-                
-                radios_param = param_id + " " + param_name
+            if (param_id != 'none') & (param_name != 'none'):
+                try:
+                    radios = open('gs_radios', 'a')
+                    
+                    radios_param = param_id + " " + param_name
 
-                radios.write(radios_param.replace('\n', ''))
+                    radios.write(radios_param.replace('\n', ''))
 
-                radios.close()
-            except IOError:
-                pass
+                    radios.close()
+                except IOError:
+                    pass
 
-            radios_array = []
-            generate_radios()
+                radios_array = []
+                generate_radios()
 
 
         elif command == 'addPlaylist'+command_end:
             param_id = rest_interface_get('commandData1')
-            try:
-                playlists = open('gs_radios', 'a')
-                
-                playlists_param = param_id
+            if param_id != 'none':
+                try:
+                    playlists = open('gs_radios', 'a')
+                    
+                    playlists_param = param_id
 
-                playlists.write(playlists_param.replace('\n', ''))
+                    playlists.write(playlists_param.replace('\n', ''))
 
-                playlists.close()
-            except IOError:
-                pass
+                    playlists.close()
+                except IOError:
+                    pass
 
-            playlists_array = []
-            generate_playlists()
+                playlists_array = []
+                generate_playlists()
 
     readable = select.select([mpg123_proc.stdout], [], [], 0.25)[0]
     eos = -1
