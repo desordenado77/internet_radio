@@ -1,33 +1,70 @@
+This document has information on the rest interface for communication between arduino and the python script running on the linino side
 
+Users information
 # users
+Number of users
+
 # user0name...userNname
+User names
+
 # user0songs
+Number of user songs of user 0
+
 #       user0song0...user0songM
+User 0 song names
+
 #       user0artist0...user0artistM
+User 0 song artists
 
 # playlists
+number of playlists
+
 # playlist0name
+name of the playlist 0
+
 # playlist0songs
+number of songs in the playlist
+
 #   playlist0song0...playlist0songM
+playlist 0 song names
+
 #   playlist0artist0...playlist0artistM
+playlist 0 song artist
 
 # radios
+number of radios
+
 # radio0name 
+radio 0 name
 
 # nowPlaying_song
+Name of the song that is currently playing
+
 # nowPlaying_album
+Name of the album of the song that is currently playing
+
 # nowPlaying_artist
+Name of the artist of the song that is currently playing
+
 # nowPlaying_pos
+current playback time (not being used currently)
+
 # nowPlaying_dur
+Duration of the current song (not being used currently)
 
 # lininoStatus
+Status of the script. Once it is "Ready" it can accept commands
 
 # command, commandData1, commandData2
+These are the commands coming from the arduino side that triggers events on the python script. The list of commands is the following (the names are self explanatory):
+
+#   command         /commandData1       /commandData2
+#####################################################
 #   playRadio       /radioNum           /null
 #   playUser        /userNum            /songNum
 #   playPlayList    /playlistNum        /songNum
 #   playPopular     /monthly,daily      /null
-#   shufle          /enable             /null
+#   shufle          /enable,disable     /null
 #   volume          /percentage         /null
 #   pause           /null               /null
 #   next            /null               /null
@@ -36,3 +73,5 @@
 #   addUser         /id                 /name
 #   addRadio        /id                 /name
 #   addPlaylist     /id                 /null
+
+

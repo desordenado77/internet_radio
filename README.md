@@ -32,8 +32,13 @@ Requirements
 
 On the arduino side, liquid crystal (http://arduino.cc/es/Tutorial/LiquidCrystal) and encoder (http://www.pjrc.com/teensy/td_libs_Encoder.html) libraries are needed for the LCD and rotary encoder.
 
-On the linino side, pygrooveshark (https://github.com/koehlma/pygrooveshark) is required.
+On the linino side, pygrooveshark (https://github.com/koehlma/pygrooveshark) is required. Linino side also requires mpg123 installed. There are instructions on building and installing mpg123 in http://how-i-did-that.blogspot.com/2014/01/arduino-yun-grooveshark-radio.html
 
+
+Arduino-linino communication
+============================
+
+The communication between the arduino and the linino is done throught the REST interface. The yun-radio.py script gathers all the information about the user radios, playlists and collections and creates key-value pairs for all of them. Once all the key value pairs for the radios, playlists and collections is created, the arduino side can send commands to the linino python script using the keys command, commandData1 and commandData2. There is more info on this in the file rest_interface.txt.
 
 
 Usage
