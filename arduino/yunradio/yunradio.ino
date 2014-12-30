@@ -409,8 +409,8 @@ void setLineVolume(int line, int volume) {
  ********* Rotary Encoder ******************
  *******************************************/
 
-Encoder knob(2,4);
-int knob_sw = 3;
+Encoder knob(5,7);
+int knob_sw = 6;
 unsigned long time_since_last_move = 0;
 unsigned long time_last_move = 0;
 long move = 0;
