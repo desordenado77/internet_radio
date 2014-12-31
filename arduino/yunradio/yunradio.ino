@@ -1000,7 +1000,11 @@ void loop() {
     break;
   }
   update_screen();
-  delay(80);
+  int i;
+  for(i=0;i<80;i++) {
+    knob.read();
+    delay(1);
+  }
   prev_button = button;
   // not sure if this is needed, but just in case let's flush the process buffer
   radio_process.flush();
